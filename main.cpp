@@ -88,6 +88,7 @@ public:
                   << "  -k <key>          Set the key with 'x' for random generation\n"
                   << "  -s <time_to_show> Set time to show status, when -s 0 show only base key\n"
                   << "  -t <thread num>   Set thread number\n"
+                  <<"   -q <quiet>        Don't show status never\n"
                   << "Example:\n"
                   << "./main -a 032ddf76d2ad152cb5b391bfba3d24251a6548dc -k 403b3d4fcff56a92f335a0cf570e4xbxb17b2a6x867x86a84x0x8x3x3X3x7x3x -t 4 -s 30\n"
                   <<"./main -a 739437bb3dd6d1983e66629c5f08c70e52769371 -b 67 -t 4 -s 10\n";
@@ -236,15 +237,16 @@ public:
     }
 
 
-    void start(const std::string& targetAddress, const std::string& templateKey, int numThreads, int time_s, const std::vector<int>& id,int bitNumber, bool base_key, bool bitSearch) {
+    void start(const std::string& targetAddress, const std::string& templateKey, int numThreads, int time_s, const std::vector<int>& id,int bitNumber, bool base_key, bool bitSearch, bool q) {
       // Declara o monitorThread fora do escopo do if/else
       std::thread monitorThread;
-
-      // Inicia o monitor de status em uma thread separada
-      if (base_key) {
-          monitorThread = std::thread(&Secp::monitorBase_key, this);
-      } else {
-          monitorThread = std::thread(&Secp::monitorStatus, this);
+      if(!q){
+       // Inicia o monitor de status em uma thread separada
+       if (base_key) {
+           monitorThread = std::thread(&Secp::monitorBase_key, this);
+       } else {
+           monitorThread = std::thread(&Secp::monitorStatus, this);
+       }
       }
 
       time_to_show = time_s;
@@ -263,11 +265,12 @@ public:
       for (auto& t : threads) {
           t.join();
       }
-
-      // Finaliza o monitor de status
-      if (monitorThread.joinable()) {
-          monitorThread.join();
-      }
+     if(!q){
+       // Finaliza o monitor de status
+       if (monitorThread.joinable()) {
+           monitorThread.join();
+       }
+     }
   }
 
 
@@ -280,7 +283,8 @@ int main(int argc, char** argv) {
     int thread_num = 1;
     int bit_num = -1;
     int opt;
-    while ((opt = getopt(argc, argv, "ha:k:t:s:b:")) != -1) {
+     bool quiet = false;
+    while ((opt = getopt(argc, argv, "ha:k:t:s:b:q")) != -1) {
         switch (opt) {
             case 'h':
                 secp.help();
@@ -293,6 +297,9 @@ int main(int argc, char** argv) {
                 break;
             case 'k':
                 keyTemplate = optarg;
+                break;
+           case 'q':
+                quiet = true;
                 break;
             case 's':
                 timeInterval = std::atoi(optarg);
@@ -345,9 +352,9 @@ int main(int argc, char** argv) {
     if(timeInterval==0)
     {
       //std::cout << "\033[2J\033[H";
-      secp.start(address, keyTemplate, thread_num, timeInterval, indices, bit_num, true, bits);
+      secp.start(address, keyTemplate, thread_num, timeInterval, indices, bit_num, true, bits,quiet);
     }else{
-      secp.start(address, keyTemplate, thread_num, timeInterval, indices,bit_num, false, bits);
+      secp.start(address, keyTemplate, thread_num, timeInterval, indices,bit_num, false, bits, quiet);
     }
 
     return 0;
